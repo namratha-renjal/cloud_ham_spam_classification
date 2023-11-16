@@ -1,0 +1,89 @@
+## Task 2
+
+### Creating Hive table  
+CREATE TABLE youtube_comments(
+    comment_id STRING,
+    author STRING,
+    comment_date date,
+    comment_content STRING,
+    label INT
+) ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+LOCATION 's3://mycloudassignmentbucket/assignmentdata'
+TBLPROPERTIES('skip.header.line.count'='1');
+
+### Load CSV data into table
+LOAD DATA INPATH 'S3://mycloudassignmentbucket/Youtube_Comments.csv'
+INTO TABLE youtube_comments;
+
+
+##Task 3 - Data cleaning
+
+### Convert comments to lowercase and remove records with NULL values
+CREATE TABLE cleaned_comments AS
+SELECT author, lower(comment_content) AS content, label
+FROM youtube_comments
+WHERE author IS not NULL AND comment_content IS not NULL;
+
+### Remove HTML tags from comment content
+CREATE TABLE comments_without_html AS
+SELECT author, regexp_replace(content, '<[^>]+>', '') AS content, label
+FROM cleaned_comments;
+
+### Remove URLs and replacing it with the word url from comment content
+CREATE TABLE comments_without_urls AS
+SELECT author, regexp_replace(content, 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', 'url') AS content
+FROM comments_without_html;
+
+### Remove Special Characters from comment content
+CREATE TABLE comments_cleaned AS
+SELECT author, regexp_replace(content, '[^a-zA-Z0-9\\s]', '') as content, label
+FROM comments_without_urls;
+
+### Export cleaned dataset to textfile
+INSERT OVERWRITE LOCAL DIRECTORY 's3://mycloudassignmentbucket/assignmentdata/Youtube_Comments_Cleaned.csv'
+ROW FORMAT DELIMITED FIELDS TERMINATED BY ','
+SELECT * FROM comments_cleaned;
+
+
+##Task 4: Ham and Spam classifier
+
+### Classifying ham or spam using bag of words
+CREATE TABLE spam_candidates AS
+SELECT
+    author,content,
+    CASE
+        WHEN content LIKE '%my channel%' OR
+            content LIKE '%click here%' OR
+            content LIKE '%check%' OR
+            content LIKE '%limited time offer%' OR
+            content LIKE '%promo%' OR
+            content LIKE '%url%' OR
+            content LIKE '%youtube%' OR
+            content LIKE '%free%' OR
+            content LIKE '%amazing%' OR
+            content LIKE '%win%' OR
+            content LIKE '%warning%'
+        THEN 1
+        ELSE 0
+    END AS is_spam
+FROM comments_cleaned;
+
+### Create table for spam comments
+CREATE TABLE spam_comments AS
+SELECT * FROM spam_candidates
+WHERE is_spam = 1;
+
+### Create table for ham comments
+CREATE TABLE ham_comments AS
+SELECT * FROM spam_candidates
+WHERE is_spam = 0;
+
+### Query to find top 10 spam accounts
+SELECT author, count(*) FROM spam_comments
+GROUP BY author ORDER BY count(*) DESC
+LIMIT 10;
+
+### Query to find top 10 ham accounts
+SELECT author, count(*) FROM ham_comments
+GROUP BY author ORDER BY count(*) DESC
+LIMIT 10; 

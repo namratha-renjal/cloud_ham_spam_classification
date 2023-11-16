@@ -34,3 +34,10 @@ system using the following technologies:
 - 4.1: Query processed data to differentiate ham and spam part of the dataset
 - 4.2: Query spam data to find the top 10 spam accounts
 - 4.3: Query ham data to find the top 10 ham accounts
+
+## Task 5: TF-IDF using MapReduce
+
+- 5.1: Use MapReduce to calculate the TF-IDF of the top 10 spam keywords for each top
+10 spam accounts
+- 5.2: Use MapReduce to calculate the TF-IDF of the top 10 ham keywords for each top
+10 ham accounts
